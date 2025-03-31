@@ -80,7 +80,9 @@ export class OSMLTable extends Construct {
       tableName: props.tableName,
       partitionKey: props.partitionKey,
       sortKey: props.sortKey,
-      pointInTimeRecovery: true,
+      pointInTimeRecoverySpecification: {
+        pointInTimeRecoveryEnabled: true
+      },
       billingMode: BillingMode.PAY_PER_REQUEST,
       encryption: TableEncryption.AWS_MANAGED,
       removalPolicy: props.removalPolicy,

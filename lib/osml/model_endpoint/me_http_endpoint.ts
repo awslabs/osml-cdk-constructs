@@ -11,7 +11,7 @@ import {
   ContainerInsights,
   LogDriver,
   Protocol,
-  TaskDefinition
+  FargateTaskDefinition
 } from "aws-cdk-lib/aws-ecs";
 import { ApplicationLoadBalancedFargateService } from "aws-cdk-lib/aws-ecs-patterns";
 import { IRole } from "aws-cdk-lib/aws-iam";
@@ -187,13 +187,12 @@ export class MEHTTPEndpoint extends Construct {
     });
 
     // Create a Task Definition for the Fargate task
-    const taskDefinition = new TaskDefinition(
+    const taskDefinition = new FargateTaskDefinition(
       this,
       "HTTPEndpointFargateTaskDefinition",
       {
-        memoryMiB: props.memory.toString(),
-        cpu: props.cpu.toString(),
-        compatibility: Compatibility.FARGATE,
+        memoryLimitMiB: props.memory,
+        cpu: props.cpu,
         taskRole: props.role,
         ephemeralStorageGiB: 100
       }
