@@ -20,11 +20,10 @@ import {
   AwsLogDriver,
   AwsLogDriverMode,
   Cluster,
-  Compatibility,
   ContainerDefinition,
   ContainerInsights,
-  Protocol as ecs_protocol,
-  TaskDefinition
+  FargateTaskDefinition,
+  Protocol as ecs_protocol
 } from "aws-cdk-lib/aws-ecs";
 import { ApplicationLoadBalancedFargateService } from "aws-cdk-lib/aws-ecs-patterns";
 import {
@@ -36,9 +35,12 @@ import {
 } from "aws-cdk-lib/aws-efs";
 import {
   ApplicationLoadBalancer,
+  ApplicationProtocol,
+  ListenerAction,
   NetworkLoadBalancer,
   Protocol as elbv2_protocol
 } from "aws-cdk-lib/aws-elasticloadbalancingv2";
+import { AlbListenerTarget } from "aws-cdk-lib/aws-elasticloadbalancingv2-targets";
 import {
   AnyPrincipal,
   IRole,
@@ -146,13 +148,13 @@ export class TSDataplaneConfig extends BaseConfig {
 
   /**
    * The CPU configuration for TS containers.
-   * @default 7168
+   * @default 8192
    */
   public ECS_CONTAINER_CPU: number;
 
   /**
    * The memory configuration for TS containers.
-   * @default 10240
+   * @default 16384
    */
   public ECS_CONTAINER_MEMORY: number;
 
@@ -265,8 +267,8 @@ export class TSDataplaneConfig extends BaseConfig {
       DDB_TTL_ATTRIBUTE: "expire_time",
       DEPLOY_TEST_COMPONENTS: false,
       EFS_MOUNT_NAME: "ts-efs-volume",
-      ECS_CONTAINER_CPU: 7168,
-      ECS_CONTAINER_MEMORY: 10240,
+      ECS_CONTAINER_CPU: 8192,
+      ECS_CONTAINER_MEMORY: 16384,
       ECS_CONTAINER_NAME: "TSContainer",
       ECS_CONTAINER_PORT: 8080,
       ECS_CLUSTER_NAME: "TSCluster",
@@ -378,7 +380,7 @@ export class TSDataplane extends Construct {
   /**
    * The ECS task definition.
    */
-  public taskDefinition: TaskDefinition;
+  public taskDefinition: FargateTaskDefinition;
 
   /**
    * The container definition for the TSDataplane service.
@@ -548,10 +550,9 @@ export class TSDataplane extends Construct {
     });
 
     // Define our ECS task
-    this.taskDefinition = new TaskDefinition(this, "TSTaskDefinition", {
-      memoryMiB: this.config.ECS_TASK_MEMORY.toString(),
-      cpu: this.config.ECS_TASK_CPU.toString(),
-      compatibility: Compatibility.FARGATE,
+    this.taskDefinition = new FargateTaskDefinition(this, "TSTaskDefinition", {
+      memoryLimitMiB: this.config.ECS_TASK_MEMORY,
+      cpu: this.config.ECS_TASK_CPU,
       taskRole: this.taskRole,
       executionRole: this.executionRole,
       ephemeralStorageGiB: 21,
@@ -638,7 +639,24 @@ export class TSDataplane extends Construct {
         loadBalancer: this.alb
       }
     );
+
+    this.fargateService.targetGroup.configureHealthCheck({
+      path: "/ping",
+      port: this.config.ECS_CONTAINER_PORT.toString(),
+      protocol: elbv2_protocol.HTTP,
+      healthyThresholdCount: 5,
+      unhealthyThresholdCount: 2,
+      timeout: Duration.seconds(5),
+      interval: Duration.seconds(30)
+    });
+
     this.fargateService.node.addDependency(this.tsContainer);
+
+    this.alb.addListener("TSALBListener", {
+      port: this.config.ECS_CONTAINER_PORT,
+      protocol: ApplicationProtocol.HTTP,
+      defaultAction: ListenerAction.forward([this.fargateService.targetGroup])
+    });
 
     // Allow access to EFS from Fargate ECS
     this.fileSystem.grantRootAccess(
@@ -708,8 +726,8 @@ export class TSDataplane extends Construct {
       });
 
       nlbListener.addTargets("TSNlbTargetGroup", {
-        targets: [this.fargateService.service],
-        port: this.config.ECS_NETWORK_LOAD_BALANCER_PORT
+        targets: [new AlbListenerTarget(this.alb.listeners[0])],
+        port: this.config.ECS_CONTAINER_PORT
       });
 
       const vpcLink = new VpcLink(this, "TSVpcLink", {
