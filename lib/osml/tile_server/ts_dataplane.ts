@@ -69,16 +69,21 @@ import { TSTaskRole } from "./roles/ts_task_role";
  */
 export class TSDataplaneConfig extends BaseConfig {
   /**
-   * The default API path to use if auth was configured.
+   * The default API Gateway path to use if auth was configured.
    * @default "latest/viewpoints"
    */
-  public API_DEFAULT_PATH: string;
+  public API_GW_DEFAULT_PATH: string;
+
+  /**
+   * The API Gateway root path for viewpoints.
+   * @default "viewpoints"
+   */
+  public API_GW_ROOT_PATH: string;
 
   /**
    * The FastAPI root path for viewpoints.
-   * @default "viewpoints"
    */
-  public API_ROOT_PATH: string;
+  public FASTAPI_ROOT_PATH?: string | undefined;
 
   /**
    * The abbreviation of TS service.
@@ -254,8 +259,8 @@ export class TSDataplaneConfig extends BaseConfig {
    */
   constructor(config: ConfigType = {}) {
     super({
-      API_DEFAULT_PATH: "latest/viewpoints",
-      API_ROOT_PATH: "viewpoints",
+      API_GW_DEFAULT_PATH: "latest/viewpoints",
+      API_GW_ROOT_PATH: "viewpoints",
       API_SERVICE_NAME_ABBREVIATION: "TS",
       BUILD_FROM_SOURCE: false,
       CONTAINER_BUILD_PATH: "lib/osml-tile-server",
@@ -690,7 +695,10 @@ export class TSDataplane extends Construct {
       JOB_QUEUE: this.jobQueue.queue.queueName,
       AWS_S3_ENDPOINT: this.regionalS3Endpoint,
       EFS_MOUNT_NAME: this.config.EFS_MOUNT_NAME,
-      STS_ARN: this.taskRole.roleArn
+      STS_ARN: this.taskRole.roleArn,
+      ...(this.config.FASTAPI_ROOT_PATH !== undefined && {
+        FASTAPI_ROOT_PATH: this.config.FASTAPI_ROOT_PATH
+      })
     };
   }
 
@@ -735,7 +743,7 @@ export class TSDataplane extends Construct {
       });
 
       const proxyIntegration = new HttpIntegration(
-        `http://${this.nlb.loadBalancerDnsName}/${this.config.API_DEFAULT_PATH}/{proxy}`,
+        `http://${this.nlb.loadBalancerDnsName}/${this.config.API_GW_DEFAULT_PATH}/{proxy}`,
         {
           httpMethod: "ANY",
           proxy: true,
@@ -756,7 +764,7 @@ export class TSDataplane extends Construct {
       this.api = new OSMLRestApi(this, "TileServerRestApi", {
         account: props.account,
         name: this.config.API_SERVICE_NAME_ABBREVIATION,
-        apiStageName: this.config.API_ROOT_PATH,
+        apiStageName: this.config.API_GW_ROOT_PATH,
         integration: proxyIntegration,
         auth: props.auth,
         osmlVpc: props.osmlVpc,
