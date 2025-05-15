@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
+ * Copyright 2023-2025 Amazon.com, Inc. or its affiliates.
  */
 
 import {
@@ -109,18 +109,13 @@ export interface MESMEndpointProps {
    *
    * @type {MESMEndpointConfig}
    */
-  config?: MESMEndpointConfig;
+  config?: MESMEndpointConfig | MESMEndpointConfig[];
 }
 
 /**
  * Represents an AWS SageMaker endpoint for a specified model.
  */
 export class MESMEndpoint extends Construct {
-  /**
-   * The SageMaker model configuration.
-   */
-  public model: CfnModel;
-
   /**
    * The SageMaker endpoint configuration.
    */
@@ -134,7 +129,7 @@ export class MESMEndpoint extends Construct {
   /**
    * The configuration for the MESMEndpoint.
    */
-  public config: MESMEndpointConfig;
+  public config: MESMEndpointConfig[];
 
   /**
    * Creates a SageMaker endpoint for the specified model.
@@ -148,44 +143,49 @@ export class MESMEndpoint extends Construct {
     super(scope, id);
 
     // Check if a custom configuration was provided for the model container
-    this.config = props.config ?? new MESMEndpointConfig();
+    if (!props.config) {
+      this.config = [new MESMEndpointConfig()];
+    } else if (Array.isArray(props.config)) {
+      this.config = props.config;
+    } else {
+      this.config = [props.config];
+    }
 
-    // Create a SageMaker model
-    this.model = new CfnModel(this, id, {
-      executionRoleArn: props.roleArn,
-      containers: [
-        {
-          image: props.containerImageUri,
-          environment: this.config.CONTAINER_ENV,
-          imageConfig: {
-            repositoryAccessMode: this.config.REPOSITORY_ACCESS_MODE
+    const models = this.config.map(
+      (config) =>
+        new CfnModel(this, `${id}-${config.VARIANT_NAME}`, {
+          executionRoleArn: props.roleArn,
+          containers: [
+            {
+              image: props.containerImageUri,
+              environment: config.CONTAINER_ENV,
+              imageConfig: {
+                repositoryAccessMode:
+                  config.REPOSITORY_ACCESS_MODE || "Platform"
+              }
+            }
+          ],
+          vpcConfig: {
+            subnets: props.subnetIds,
+            securityGroupIds: [config.SECURITY_GROUP_ID]
           }
-        }
-      ],
-      vpcConfig: {
-        subnets: props.subnetIds,
-        securityGroupIds: [this.config.SECURITY_GROUP_ID]
-      }
-    });
+        })
+    );
 
-    // Configure the SageMaker endpoint settings
     this.endpointConfig = new CfnEndpointConfig(this, `${id}-EndpointConfig`, {
-      productionVariants: [
-        {
-          initialInstanceCount: this.config.INITIAL_INSTANCE_COUNT,
-          initialVariantWeight: this.config.INITIAL_VARIANT_WEIGHT,
-          instanceType: props.instanceType,
-          modelName: this.model.attrModelName,
-          variantName: this.config.VARIANT_NAME
-        }
-      ],
+      productionVariants: this.config.map((config, i) => ({
+        initialInstanceCount: config.INITIAL_INSTANCE_COUNT,
+        initialVariantWeight: config.INITIAL_VARIANT_WEIGHT,
+        instanceType: props.instanceType,
+        modelName: models[i].attrModelName,
+        variantName: config.VARIANT_NAME
+      })),
       tags: [
         { key: "Name", value: props.modelName },
         { key: "Timestamp", value: new Date().toISOString() }
       ]
     });
 
-    // Host a SageMaker endpoint on top of the imported model container
     this.endpoint = new CfnEndpoint(this, `${id}-Endpoint`, {
       endpointConfigName: this.endpointConfig.attrEndpointConfigName,
       endpointName: props.modelName

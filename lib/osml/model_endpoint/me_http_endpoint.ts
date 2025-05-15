@@ -6,12 +6,11 @@ import { Duration, RemovalPolicy } from "aws-cdk-lib";
 import { ISecurityGroup, SecurityGroup } from "aws-cdk-lib/aws-ec2";
 import {
   Cluster,
-  Compatibility,
   ContainerImage,
   ContainerInsights,
+  FargateTaskDefinition,
   LogDriver,
-  Protocol,
-  FargateTaskDefinition
+  Protocol
 } from "aws-cdk-lib/aws-ecs";
 import { ApplicationLoadBalancedFargateService } from "aws-cdk-lib/aws-ecs-patterns";
 import { IRole } from "aws-cdk-lib/aws-iam";

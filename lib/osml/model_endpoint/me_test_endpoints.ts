@@ -1,5 +1,5 @@
 /*
- * Copyright 2023-2024 Amazon.com, Inc. or its affiliates.
+ * Copyright 2023-2025 Amazon.com, Inc. or its affiliates.
  */
 
 import { RemovalPolicy } from "aws-cdk-lib";
@@ -387,8 +387,8 @@ export class METestEndpoints extends Construct {
       this.httpCenterpointModelEndpoint.node.addDependency(this.modelContainer);
     }
 
+    // Build an SM endpoint for the centerpoint model
     if (this.config.DEPLOY_SM_CENTERPOINT_ENDPOINT) {
-      // Build an SM endpoint from the centerpoint model container
       this.centerPointModelEndpoint = new MESMEndpoint(
         this,
         "OSMLCenterPointModelEndpoint",
@@ -398,20 +398,21 @@ export class METestEndpoints extends Construct {
           roleArn: this.smRole.roleArn,
           instanceType: this.config.SM_CPU_INSTANCE_TYPE,
           subnetIds: props.osmlVpc.selectedSubnets.subnetIds,
-          config: new MESMEndpointConfig({
-            CONTAINER_ENV: {
-              MODEL_SELECTION: this.config.SM_CENTER_POINT_MODEL
-            },
-            SECURITY_GROUP_ID: this.securityGroupId,
-            REPOSITORY_ACCESS_MODE: this.modelContainer.repositoryAccessMode
-          })
+          config: [
+            new MESMEndpointConfig({
+              CONTAINER_ENV: {
+                MODEL_SELECTION: this.config.SM_CENTER_POINT_MODEL
+              },
+              SECURITY_GROUP_ID: this.securityGroupId,
+              REPOSITORY_ACCESS_MODE: this.modelContainer.repositoryAccessMode
+            })
+          ]
         }
       );
       this.centerPointModelEndpoint.node.addDependency(this.modelContainer);
     }
-
+    // Build an SM endpoint for the flood model
     if (this.config.DEPLOY_SM_FLOOD_ENDPOINT) {
-      // Build an SM endpoint from the flood model container
       this.floodModelEndpoint = new MESMEndpoint(
         this,
         "OSMLFloodModelEndpoint",
@@ -421,20 +422,33 @@ export class METestEndpoints extends Construct {
           roleArn: this.smRole.roleArn,
           instanceType: this.config.SM_CPU_INSTANCE_TYPE,
           subnetIds: props.osmlVpc.selectedSubnets.subnetIds,
-          config: new MESMEndpointConfig({
-            CONTAINER_ENV: {
-              MODEL_SELECTION: this.config.SM_FLOOD_MODEL
-            },
-            SECURITY_GROUP_ID: this.securityGroupId,
-            REPOSITORY_ACCESS_MODE: this.modelContainer.repositoryAccessMode
-          })
+          config: [
+            new MESMEndpointConfig({
+              VARIANT_NAME: "flood-50",
+              CONTAINER_ENV: {
+                FLOOD_VOLUME: 50,
+                MODEL_SELECTION: this.config.SM_FLOOD_MODEL
+              },
+              SECURITY_GROUP_ID: this.securityGroupId,
+              REPOSITORY_ACCESS_MODE: this.modelContainer.repositoryAccessMode
+            }),
+            new MESMEndpointConfig({
+              VARIANT_NAME: "flood-100",
+              CONTAINER_ENV: {
+                FLOOD_VOLUME: 100,
+                MODEL_SELECTION: this.config.SM_FLOOD_MODEL
+              },
+              SECURITY_GROUP_ID: this.securityGroupId,
+              REPOSITORY_ACCESS_MODE: this.modelContainer.repositoryAccessMode
+            })
+          ]
         }
       );
       this.floodModelEndpoint.node.addDependency(this.modelContainer);
     }
 
+    // Build an SM endpoint for the aircraft model
     if (this.config.DEPLOY_SM_AIRCRAFT_ENDPOINT) {
-      // Build an SM endpoint from the aircraft model container
       this.aircraftModelEndpoint = new MESMEndpoint(
         this,
         "OSMLAircraftModelEndpoint",
@@ -446,14 +460,16 @@ export class METestEndpoints extends Construct {
             this.config.SM_GPU_INSTANCE_TYPE ??
             regionConfig.sageMakerGpuEndpointInstanceType,
           subnetIds: props.osmlVpc.selectedSubnets.subnetIds,
-          config: new MESMEndpointConfig({
-            CONTAINER_ENV: {
-              ENABLE_SEGMENTATION: "true",
-              MODEL_SELECTION: this.config.SM_AIRCRAFT_MODEL
-            },
-            SECURITY_GROUP_ID: this.securityGroupId,
-            REPOSITORY_ACCESS_MODE: this.modelContainer.repositoryAccessMode
-          })
+          config: [
+            new MESMEndpointConfig({
+              CONTAINER_ENV: {
+                ENABLE_SEGMENTATION: "true",
+                MODEL_SELECTION: this.config.SM_AIRCRAFT_MODEL
+              },
+              SECURITY_GROUP_ID: this.securityGroupId,
+              REPOSITORY_ACCESS_MODE: this.modelContainer.repositoryAccessMode
+            })
+          ]
         }
       );
       this.aircraftModelEndpoint.node.addDependency(this.modelContainer);

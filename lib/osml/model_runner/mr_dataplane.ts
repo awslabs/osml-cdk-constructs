@@ -111,7 +111,7 @@ export class MRDataplaneConfig extends BaseConfig {
    * The name of the DynamoDB table for outstanding image jobs.
    * @default "OutstandingImageProcessingJobs"
    */
-  public DDB_OUTSTANDING_IMAGE_JOBS_TABLE: string
+  public DDB_OUTSTANDING_IMAGE_JOBS_TABLE: string;
 
   /**
    * The name of the DynamoDB table for region request status.
@@ -569,18 +569,22 @@ export class MRDataplane extends Construct {
     this.setup(props);
 
     // Outstanding jobs currently being tracked by the scheduler
-    this.outstandingImageJobsTable = new OSMLTable(this, "MROutstandingImageJobsTable", {
-      tableName: this.config.DDB_OUTSTANDING_IMAGE_JOBS_TABLE,
-      partitionKey: {
-        name: "endpoint_id",
-        type: AttributeType.STRING
-      },
-      sortKey: {
-        name: "job_id",
-        type: AttributeType.STRING
-      },
-      removalPolicy: this.removalPolicy,
-    });
+    this.outstandingImageJobsTable = new OSMLTable(
+      this,
+      "MROutstandingImageJobsTable",
+      {
+        tableName: this.config.DDB_OUTSTANDING_IMAGE_JOBS_TABLE,
+        partitionKey: {
+          name: "endpoint_id",
+          type: AttributeType.STRING
+        },
+        sortKey: {
+          name: "job_id",
+          type: AttributeType.STRING
+        },
+        removalPolicy: this.removalPolicy
+      }
+    );
 
     // Job status table to store worker status info
     this.jobStatusTable = new OSMLTable(this, "MRJobStatusTable", {
