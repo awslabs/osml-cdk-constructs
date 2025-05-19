@@ -12,6 +12,33 @@ import { Construct } from "constructs";
 import { BaseConfig, ConfigType } from "../utils/base_config";
 
 /**
+ * Configuration for a container in a SageMaker model
+ */
+export interface ContainerDefinition {
+  /**
+   * The URI of the container image
+   */
+  imageUri: string;
+
+  /**
+   * Environment variables for the container
+   */
+  environment?: Record<string, unknown>;
+
+  /**
+   * Repository access mode for the container
+   */
+  repositoryAccessMode?: string;
+
+  /**
+   * Hostname for the container (required for multi-container Direct mode)
+   * If required and not specified, will default to an index-based name
+   * example: "container-0"
+   */
+  containerHostname?: string;
+}
+
+/**
  * Configuration class for MESMEndpoint Construct.
  */
 export class MESMEndpointConfig extends BaseConfig {
@@ -39,12 +66,19 @@ export class MESMEndpointConfig extends BaseConfig {
   public SECURITY_GROUP_ID: string;
 
   /**
+   * List of container definitions for the model
+   */
+  public CONTAINERS: ContainerDefinition[];
+
+  /**
    * A JSON object which includes ENV variables to be put into the model container.
+   * @deprecated Use CONTAINERS (ContainerDefinition[]) instead
    */
   public CONTAINER_ENV: Record<string, unknown>;
 
   /**
    * The repository access mode to use for the SageMaker endpoint container.
+   * @deprecated Use CONTAINERS (ContainerDefinition) instead
    */
   public REPOSITORY_ACCESS_MODE: string;
   /**
@@ -57,9 +91,30 @@ export class MESMEndpointConfig extends BaseConfig {
       INITIAL_VARIANT_WEIGHT: 1,
       INITIAL_INSTANCE_COUNT: 1,
       VARIANT_NAME: "AllTraffic",
-      REPOSITORY_ACCESS_MODE: "Platform",
+      CONTAINERS: [],
       ...config
     });
+
+    // Convert deprecated interface to container list if needed
+    if (this.CONTAINERS.length === 0 && config.CONTAINER_ENV !== undefined) {
+      this.CONTAINERS = [
+        {
+          imageUri: "", // Populated later with props.containerImageUri
+          environment: config.CONTAINER_ENV as Record<string, unknown>,
+          repositoryAccessMode: (config.REPOSITORY_ACCESS_MODE ||
+            "Platform") as string
+        }
+      ];
+    } else if (this.CONTAINERS.length === 0) {
+      // Ensure we always have a CONTAINERS array - default to an empty container definition
+      this.CONTAINERS = [
+        {
+          imageUri: "",
+          environment: {} as Record<string, unknown>,
+          repositoryAccessMode: "Platform"
+        }
+      ];
+    }
   }
 }
 
@@ -151,26 +206,35 @@ export class MESMEndpoint extends Construct {
       this.config = [props.config];
     }
 
-    const models = this.config.map(
-      (config) =>
-        new CfnModel(this, `${id}-${config.VARIANT_NAME}`, {
-          executionRoleArn: props.roleArn,
-          containers: [
-            {
-              image: props.containerImageUri,
-              environment: config.CONTAINER_ENV,
-              imageConfig: {
-                repositoryAccessMode:
-                  config.REPOSITORY_ACCESS_MODE || "Platform"
-              }
-            }
-          ],
-          vpcConfig: {
-            subnets: props.subnetIds,
-            securityGroupIds: [config.SECURITY_GROUP_ID]
-          }
-        })
-    );
+    const models = this.config.map((config) => {
+      // Set the imageUri for containers that don't have one specified. This
+      //  handles the legacy conversion case where imageUri was initially empty.
+      config.CONTAINERS = config.CONTAINERS.map((container) => ({
+        ...container,
+        imageUri: container.imageUri || props.containerImageUri
+      }));
+
+      // Map to the SageMaker container format
+      const containers = config.CONTAINERS.map((container, index) => ({
+        image: container.imageUri,
+        environment: container.environment || {},
+        imageConfig: {
+          repositoryAccessMode: container.repositoryAccessMode || "Platform"
+        },
+        containerHostname: container.containerHostname || `container-${index}`
+      }));
+
+      return new CfnModel(this, `${id}-${config.VARIANT_NAME}`, {
+        executionRoleArn: props.roleArn,
+        containers: containers,
+        inferenceExecutionConfig:
+          containers.length > 1 ? { mode: "Direct" } : undefined,
+        vpcConfig: {
+          subnets: props.subnetIds,
+          securityGroupIds: [config.SECURITY_GROUP_ID]
+        }
+      });
+    });
 
     this.endpointConfig = new CfnEndpointConfig(this, `${id}-EndpointConfig`, {
       productionVariants: this.config.map((config, i) => ({

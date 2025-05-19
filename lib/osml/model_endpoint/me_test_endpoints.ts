@@ -74,6 +74,12 @@ export class METestEndpointsConfig extends BaseConfig {
   public DEPLOY_SM_FLOOD_ENDPOINT: boolean;
 
   /**
+   * Whether to deploy the SageMaker multi-container model endpoint.
+   * @default true
+   */
+  public DEPLOY_MULTI_CONTAINER_ENDPOINT: boolean;
+
+  /**
    * The CPU allocation for the HTTP endpoint.
    * @default 4096
    */
@@ -139,6 +145,12 @@ export class METestEndpointsConfig extends BaseConfig {
   public SM_CENTER_POINT_MODEL: string;
 
   /**
+   * The name of the multi-container SageMaker endpoint.
+   * @default "multi-container"
+   */
+  public SM_MULTI_CONTAINER_ENDPOINT: string;
+
+  /**
    * The SageMaker CPU instance type.
    * @default "ml.m5.xlarge"
    */
@@ -176,6 +188,7 @@ export class METestEndpointsConfig extends BaseConfig {
       DEPLOY_SM_AIRCRAFT_ENDPOINT: true,
       DEPLOY_SM_CENTERPOINT_ENDPOINT: true,
       DEPLOY_SM_FLOOD_ENDPOINT: true,
+      DEPLOY_MULTI_CONTAINER_ENDPOINT: true,
       HTTP_ENDPOINT_CPU: 4096,
       HTTP_ENDPOINT_CONTAINER_PORT: 8080,
       HTTP_ENDPOINT_DOMAIN_NAME: "test-http-model-endpoint",
@@ -185,8 +198,9 @@ export class METestEndpointsConfig extends BaseConfig {
       HTTP_ENDPOINT_MEMORY: 16384,
       SM_AIRCRAFT_MODEL: "aircraft",
       SM_CENTER_POINT_MODEL: "centerpoint",
-      SM_CPU_INSTANCE_TYPE: "ml.m5.xlarge",
       SM_FLOOD_MODEL: "flood",
+      SM_MULTI_CONTAINER_ENDPOINT: "multi-container",
+      SM_CPU_INSTANCE_TYPE: "ml.m5.xlarge",
       ...config
     });
   }
@@ -270,6 +284,11 @@ export class METestEndpoints extends Construct {
    * SM model endpoint for the aircraft model.
    */
   public aircraftModelEndpoint?: MESMEndpoint;
+
+  /**
+   * SM endpoint for testing a multi-container configuration.
+   */
+  public multiContainerModelEndpoint?: MESMEndpoint;
 
   /**
    * Security Group ID associated with the endpoints.
@@ -473,6 +492,46 @@ export class METestEndpoints extends Construct {
         }
       );
       this.aircraftModelEndpoint.node.addDependency(this.modelContainer);
+    }
+
+    // Build a multi-container endpoint
+    if (this.config.DEPLOY_MULTI_CONTAINER_ENDPOINT) {
+      this.multiContainerModelEndpoint = new MESMEndpoint(
+        this,
+        "OSMLMultiContainerModelEndpoint",
+        {
+          containerImageUri: this.modelContainer.containerUri,
+          modelName: this.config.SM_MULTI_CONTAINER_ENDPOINT,
+          roleArn: this.smRole.roleArn,
+          instanceType: this.config.SM_CPU_INSTANCE_TYPE,
+          subnetIds: props.osmlVpc.selectedSubnets.subnetIds,
+          config: [
+            new MESMEndpointConfig({
+              SECURITY_GROUP_ID: this.securityGroupId,
+              CONTAINERS: [
+                {
+                  imageUri: this.modelContainer.containerUri,
+                  environment: {
+                    MODEL_SELECTION: this.config.SM_CENTER_POINT_MODEL
+                  },
+                  repositoryAccessMode:
+                    this.modelContainer.repositoryAccessMode,
+                  containerHostname: "centerpoint-container"
+                },
+                {
+                  imageUri: this.modelContainer.containerUri,
+                  environment: {
+                    MODEL_SELECTION: this.config.SM_AIRCRAFT_MODEL
+                  },
+                  repositoryAccessMode:
+                    this.modelContainer.repositoryAccessMode,
+                  containerHostname: "aircraft-container"
+                }
+              ]
+            })
+          ]
+        }
+      );
     }
   }
 }
