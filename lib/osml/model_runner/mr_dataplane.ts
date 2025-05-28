@@ -126,6 +126,12 @@ export class MRDataplaneConfig extends BaseConfig {
   public DDB_TTL_ATTRIBUTE: string;
 
   /**
+   * The time to live in days for DDB records used in tables.
+   * @default undefined
+   */
+  public DDB_TTL_IN_DAYS: string;
+
+  /**
    * The maximum number of tasks allowed in the cluster.
    * @default 40
    */
@@ -767,6 +773,7 @@ export class MRDataplane extends Construct {
   } {
     let containerEnv = {
       AWS_DEFAULT_REGION: props.account.region,
+      DDB_TTL_IN_DAYS: this.config.DDB_TTL_IN_DAYS,
       JOB_TABLE: this.jobStatusTable.table.tableName,
       OUTSTANDING_JOBS_TABLE: this.outstandingImageJobsTable.table.tableName,
       FEATURE_TABLE: this.featureTable.table.tableName,
