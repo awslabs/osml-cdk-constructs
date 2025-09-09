@@ -1,13 +1,13 @@
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-yaml
       - id: end-of-file-fixer
       - id: trailing-whitespace
 
   - repo: https://github.com/pre-commit/mirrors-eslint
-    rev: v8.56.0
+    rev: v9.35.0
     hooks:
       - id: eslint
         files: \.[jt]sx?$  # *.js, *.jsx, *.ts and *.tsx
@@ -15,14 +15,14 @@ repos:
         args: ["--fix"]
 
   - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v2.5.1
+    rev: v4.0.0-alpha.8
     hooks:
       - id: prettier
         files: \.[jt]sx?$  # *.js, *.jsx, *.ts and *.tsx
         types: [ file ]
 
   - repo: https://github.com/aws-samples/automated-security-helper
-    rev: 'v2.0.1' # update with the latest-tagged version in the repository
+    rev: 'v3.0.0' # update with the latest-tagged version in the repository
     hooks:
       - id: ash
         stages: [ manual ]
@@ -30,7 +30,7 @@ repos:
         # args: [ "-f" ]
 
   - repo: https://github.com/sbrunner/pre-commit-copyright
-    rev: 1.2.1
+    rev: 1.6.1
     hooks:
       - id: copyright
         name: update copyright

@@ -5,8 +5,12 @@
 import { Duration, RemovalPolicy, Size } from "aws-cdk-lib";
 import { LambdaIntegration } from "aws-cdk-lib/aws-apigateway";
 import { ISecurityGroup, Port, SecurityGroup } from "aws-cdk-lib/aws-ec2";
-import { AnyPrincipal, PolicyStatement, Role } from "aws-cdk-lib/aws-iam";
-import { IRole } from "aws-cdk-lib/aws-iam/lib/role";
+import {
+  AnyPrincipal,
+  IRole,
+  PolicyStatement,
+  Role
+} from "aws-cdk-lib/aws-iam";
 import {
   DockerImageFunction,
   Function,
