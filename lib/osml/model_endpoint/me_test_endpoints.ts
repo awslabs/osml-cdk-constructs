@@ -74,6 +74,12 @@ export class METestEndpointsConfig extends BaseConfig {
   public DEPLOY_SM_FLOOD_ENDPOINT: boolean;
 
   /**
+   * Whether to deploy the SageMaker ship model endpoint.
+   * @default true
+   */
+  public DEPLOY_SM_SHIP_ENDPOINT: boolean;
+
+  /**
    * Whether to deploy the SageMaker multi-container model endpoint.
    * @default true
    */
@@ -163,6 +169,12 @@ export class METestEndpointsConfig extends BaseConfig {
   public SM_FLOOD_MODEL: string;
 
   /**
+   * The name of the SageMaker endpoint for the flood model.
+   * @default "ship"
+   */
+  public SM_SHIP_MODEL: string;
+
+  /**
    * The SageMaker GPU instance type.
    */
   public SM_GPU_INSTANCE_TYPE?: string;
@@ -188,6 +200,7 @@ export class METestEndpointsConfig extends BaseConfig {
       DEPLOY_SM_AIRCRAFT_ENDPOINT: true,
       DEPLOY_SM_CENTERPOINT_ENDPOINT: true,
       DEPLOY_SM_FLOOD_ENDPOINT: true,
+      DEPLOY_SM_SHIP_ENDPOINT: false,
       DEPLOY_MULTI_CONTAINER_ENDPOINT: true,
       HTTP_ENDPOINT_CPU: 4096,
       HTTP_ENDPOINT_CONTAINER_PORT: 8080,
@@ -199,6 +212,7 @@ export class METestEndpointsConfig extends BaseConfig {
       SM_AIRCRAFT_MODEL: "aircraft",
       SM_CENTER_POINT_MODEL: "centerpoint",
       SM_FLOOD_MODEL: "flood",
+      SM_SHIP_MODEL: "ship",
       SM_MULTI_CONTAINER_ENDPOINT: "multi-container",
       SM_CPU_INSTANCE_TYPE: "ml.m5.xlarge",
       ...config
@@ -284,6 +298,11 @@ export class METestEndpoints extends Construct {
    * SM model endpoint for the aircraft model.
    */
   public aircraftModelEndpoint?: MESMEndpoint;
+
+  /**
+   * SM model endpoint for the aircraft model.
+   */
+  public shipModelEndpoint?: MESMEndpoint;
 
   /**
    * SM endpoint for testing a multi-container configuration.
@@ -492,6 +511,29 @@ export class METestEndpoints extends Construct {
         }
       );
       this.aircraftModelEndpoint.node.addDependency(this.modelContainer);
+    }
+
+    if (this.config.DEPLOY_SM_SHIP_ENDPOINT) {
+      this.shipModelEndpoint = new MESMEndpoint(this, "OSMLShipModelEndpoint", {
+        containerImageUri: this.modelContainer.containerUri,
+        modelName: this.config.SM_SHIP_MODEL,
+        roleArn: this.smRole.roleArn,
+        instanceType:
+          this.config.SM_GPU_INSTANCE_TYPE ??
+          regionConfig.sageMakerGpuEndpointInstanceType,
+        subnetIds: props.osmlVpc.selectedSubnets.subnetIds,
+        config: [
+          new MESMEndpointConfig({
+            CONTAINER_ENV: {
+              MODEL_SELECTION: this.config.SM_SHIP_MODEL
+            },
+            SECURITY_GROUP_ID: this.securityGroupId,
+            REPOSITORY_ACCESS_MODE: this.modelContainer.repositoryAccessMode
+          })
+        ]
+      });
+
+      this.shipModelEndpoint.node.addDependency(this.modelContainer);
     }
 
     // Build a multi-container endpoint
