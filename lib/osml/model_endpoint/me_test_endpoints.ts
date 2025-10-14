@@ -80,6 +80,12 @@ export class METestEndpointsConfig extends BaseConfig {
   public DEPLOY_MULTI_CONTAINER_ENDPOINT: boolean;
 
   /**
+   * Whether to deploy the SageMaker failure model endpoint.
+   * @default true
+   */
+  public DEPLOY_SM_FAILURE_ENDPOINT: boolean;
+
+  /**
    * The CPU allocation for the HTTP endpoint.
    * @default 4096
    */
@@ -163,6 +169,12 @@ export class METestEndpointsConfig extends BaseConfig {
   public SM_FLOOD_MODEL: string;
 
   /**
+   * The name of the SageMaker endpoint for the failure model.
+   * @default "failure"
+   */
+  public SM_FAILURE_MODEL: string;
+
+  /**
    * The SageMaker GPU instance type.
    */
   public SM_GPU_INSTANCE_TYPE?: string;
@@ -189,6 +201,7 @@ export class METestEndpointsConfig extends BaseConfig {
       DEPLOY_SM_CENTERPOINT_ENDPOINT: true,
       DEPLOY_SM_FLOOD_ENDPOINT: true,
       DEPLOY_MULTI_CONTAINER_ENDPOINT: true,
+      DEPLOY_SM_FAILURE_ENDPOINT: true,
       HTTP_ENDPOINT_CPU: 4096,
       HTTP_ENDPOINT_CONTAINER_PORT: 8080,
       HTTP_ENDPOINT_DOMAIN_NAME: "test-http-model-endpoint",
@@ -201,6 +214,7 @@ export class METestEndpointsConfig extends BaseConfig {
       SM_FLOOD_MODEL: "flood",
       SM_MULTI_CONTAINER_ENDPOINT: "multi-container",
       SM_CPU_INSTANCE_TYPE: "ml.m5.xlarge",
+      SM_FAILURE_MODEL: "failure",
       ...config
     });
   }
@@ -281,6 +295,11 @@ export class METestEndpoints extends Construct {
   public floodModelEndpoint?: MESMEndpoint;
 
   /**
+   * SM model endpoint for the flood model.
+   */
+  public failureModelEndpoint?: MESMEndpoint;
+
+  /**
    * SM model endpoint for the aircraft model.
    */
   public aircraftModelEndpoint?: MESMEndpoint;
@@ -345,7 +364,8 @@ export class METestEndpoints extends Construct {
       this.config.DEPLOY_HTTP_AIRCRAFT_ENDPOINT ||
       this.config.DEPLOY_SM_CENTERPOINT_ENDPOINT ||
       this.config.DEPLOY_SM_AIRCRAFT_ENDPOINT ||
-      this.config.DEPLOY_SM_FLOOD_ENDPOINT
+      this.config.DEPLOY_SM_FLOOD_ENDPOINT ||
+      this.config.DEPLOY_SM_FAILURE_ENDPOINT
     ) {
       this.modelContainer = new OSMLContainer(this, "MEContainer", {
         account: props.account,
@@ -465,6 +485,31 @@ export class METestEndpoints extends Construct {
         }
       );
       this.floodModelEndpoint.node.addDependency(this.modelContainer);
+    }
+
+    if (this.config.DEPLOY_SM_FAILURE_ENDPOINT) {
+      // Build an SM endpoint from the failure model container
+      this.failureModelEndpoint = new MESMEndpoint(
+        this,
+        "OSMLFailureModelEndpoint",
+        {
+          containerImageUri: this.modelContainer.containerUri,
+          modelName: this.config.SM_FAILURE_MODEL,
+          roleArn: this.smRole.roleArn,
+          instanceType: this.config.SM_CPU_INSTANCE_TYPE,
+          subnetIds: props.osmlVpc.selectedSubnets.subnetIds,
+          config: [
+            new MESMEndpointConfig({
+              CONTAINER_ENV: {
+                MODEL_SELECTION: this.config.SM_FAILURE_MODEL
+              },
+              SECURITY_GROUP_ID: this.securityGroupId,
+              REPOSITORY_ACCESS_MODE: this.modelContainer.repositoryAccessMode
+            })
+          ]
+        }
+      );
+      this.failureModelEndpoint.node.addDependency(this.modelContainer);
     }
 
     // Build an SM endpoint for the aircraft model
