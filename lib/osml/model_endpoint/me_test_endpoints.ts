@@ -420,7 +420,8 @@ export class METestEndpoints extends Construct {
           config: [
             new MESMEndpointConfig({
               CONTAINER_ENV: {
-                MODEL_SELECTION: this.config.SM_CENTER_POINT_MODEL
+                MODEL_SELECTION: this.config.SM_CENTER_POINT_MODEL,
+                ENABLE_SEGMENTATION: "true"
               },
               SECURITY_GROUP_ID: this.securityGroupId,
               REPOSITORY_ACCESS_MODE: this.modelContainer.repositoryAccessMode
