@@ -30,7 +30,7 @@ This package contains an assortment of CDK components that may be re-used and re
 5. `me_*`: these are Model Endpoint (me) components. These create the Model Endpoint infrastructure, which is responsible for leveraging the user-provided AI models.
 6. `ts_*`: these are Tile Server (ts) components. These create the Tile Server infrastructure for queuing jobs, lambda sweeper, and more.
 
-To learn more about the CDK constructs and access their API, please visit our documentation page at [OSML CDK Constructs Documentation](https://aws-solutions-library-samples.github.io/osml-cdk-constructs/). There, you'll find full in-depth documentation to help you get started with using the constructs in your own projects. You can follow or use our infrastructure setup by visiting OSML project, [Guidance for Processing Overhead Imagery](https://github.com/aws-solutions-library-samples/guidance-for-processing-overhead-imagery-on-aws).
+To learn more about the CDK constructs and access their API, please visit our documentation page at [OSML CDK Constructs Documentation](https://awslabs.github.io/osml-cdk-constructs/) There, you'll find full in-depth documentation to help you get started with using the constructs in your own projects. You can follow or use our infrastructure setup by visiting OSML project, [Guidance for Processing Overhead Imagery](https://github.com/aws-solutions-library-samples/guidance-for-processing-overhead-imagery-on-aws).
 
 ### IAM Permissions / Roles
 
