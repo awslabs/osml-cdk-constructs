@@ -1,3 +1,5 @@
+> **⚠️ This repository has been archived and is no longer maintained.** The CDK constructs necessary to install OversightML components have been broken up and distributed into the `cdk/` directory of individual repositories. See [awslabs/osml-model-runner](https://github.com/awslabs/osml-model-runner) and [awslabs/osml-tile-server](https://github.com/awslabs/osml-tile-server) on GitHub.
+
 # OSML CDK Constructs
 
 This project demonstrates a CDK Construct Library which includes the constructs that make up the OversightML (OSML) solution's AWS infrastructure.
